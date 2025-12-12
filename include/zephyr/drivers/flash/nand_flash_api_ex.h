@@ -1,0 +1,33 @@
+/*
+ * Copyright (c) 2025 Endress+Hauser GmbH+Co. KG
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/**
+ * @file
+ * @brief NAND flash specific API.
+ */
+
+#ifndef __ZEPHYR_INCLUDE_DRIVERS_FLASH_NAND_FLASH_API_EX_H__
+#define __ZEPHYR_INCLUDE_DRIVERS_FLASH_NAND_FLASH_API_EX_H__
+
+#include <zephyr/drivers/flash.h>
+
+/**
+ * @brief Enumeration for NAND flash extended operations.
+ */
+enum nand_flash_ex_ops {
+	/**
+	 * Checks whether a block is marked as bad. As input it takes the block index (size_t *). As
+	 * output it returns 1 if the block is bad, 0 otherwise (int *).
+	 */
+	NAND_FLASH_IS_BAD_BLOCK = FLASH_EX_OP_VENDOR_BASE,
+
+	/**
+	 * Marks a block as bad. As input it takes the block index (size_t *). There is no output.
+	 */
+	NAND_FLASH_MARK_BAD_BLOCK,
+};
+
+#endif /* __ZEPHYR_INCLUDE_DRIVERS_FLASH_NAND_FLASH_API_EX_H__ */

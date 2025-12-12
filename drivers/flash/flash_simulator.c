@@ -10,6 +10,7 @@
 #include <zephyr/devicetree.h>
 #include <zephyr/linker/devicetree_regions.h>
 #include <zephyr/drivers/flash.h>
+#include <zephyr/drivers/flash/nand_flash_api_ex.h>
 #include <zephyr/init.h>
 #include <zephyr/kernel.h>
 #include <zephyr/sys/util.h>
@@ -380,6 +381,35 @@ flash_sim_get_parameters(const struct device *dev)
 	return &flash_sim_parameters;
 }
 
+#ifdef CONFIG_FLASH_EX_OP_ENABLED
+int flash_sim_ex_op(const struct device *dev, uint16_t code, const uintptr_t in, void *out)
+{
+	ARG_UNUSED(dev);
+	ARG_UNUSED(in);
+
+	int ret = 0;
+
+	switch (code) {
+	case NAND_FLASH_IS_BAD_BLOCK: {
+		/* Block is never bad on flash simulator */
+		*(int *)out = 0;
+		break;
+	}
+
+	case NAND_FLASH_MARK_BAD_BLOCK: {
+		/* Blocks cannot be marked bad on flash simulator */
+		break;
+	}
+
+	default:
+		ret = -ENOTSUP;
+		break;
+	}
+
+	return ret;
+}
+#endif /* CONFIG_FLASH_EX_OP_ENABLED */
+
 static DEVICE_API(flash, flash_sim_api) = {
 	.read = flash_sim_read,
 	.write = flash_sim_write,
@@ -389,6 +419,9 @@ static DEVICE_API(flash, flash_sim_api) = {
 #ifdef CONFIG_FLASH_PAGE_LAYOUT
 	.page_layout = flash_sim_page_layout,
 #endif
+#ifdef CONFIG_FLASH_EX_OP_ENABLED
+	.ex_op = flash_sim_ex_op,
+#endif /* CONFIG_FLASH_EX_OP_ENABLED */
 };
 
 #ifdef CONFIG_ARCH_POSIX
