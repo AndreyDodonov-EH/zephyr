@@ -5,13 +5,14 @@
  */
 
 #include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(log_backend_ws, CONFIG_LOG_DEFAULT_LEVEL);
+LOG_MODULE_REGISTER(log_backend_ws, LOG_LEVEL_DBG);
 
 #include <zephyr/sys/util_macro.h>
 #include <zephyr/logging/log_backend.h>
 #include <zephyr/logging/log_core.h>
 #include <zephyr/logging/log_output.h>
 #include <zephyr/logging/log_backend_ws.h>
+#include <zephyr/logging/log_ctrl.h>
 #include <zephyr/net/net_if.h>
 #include <zephyr/net/socket.h>
 
@@ -63,7 +64,12 @@ static int ws_console_out(struct log_backend_ws_ctx *ctx, int c)
 
 	__ASSERT_NO_MSG(pos < sizeof(output_buf));
 
-	if ((c != '\n') && (c != '\r')) {
+	// output_buf[pos++] = c;
+
+	// if (c == '\n') {
+	// 	printnow = true;
+	// }
+    if ((c != '\n') && (c != '\r')) {
 		output_buf[pos++] = c;
 	} else {
 		printnow = true;
@@ -175,28 +181,30 @@ void log_backend_ws_start(void)
 	const struct log_backend *backend = log_backend_ws_get();
 
 	if (!log_backend_is_active(backend)) {
-		log_backend_activate(backend, backend->cb->ctx);
+		log_backend_enable(backend, backend->cb->ctx, CONFIG_LOG_MAX_LEVEL);
 	}
 }
 
 int log_backend_ws_register(int fd)
 {
-	struct log_backend_ws_ctx *ctx = log_output_ws.control_block->ctx;
+	if (!ws_init_done && do_ws_init(&ctx) == 0) {
+		ws_init_done = true;
+	}
 
-	ctx->sock = fd;
+	ctx.sock = fd;
+
+	log_backend_ws_start();
 
 	return 0;
 }
 
 int log_backend_ws_unregister(int fd)
 {
-	struct log_backend_ws_ctx *ctx = log_output_ws.control_block->ctx;
-
-	if (ctx->sock != fd) {
-		LOG_DBG("Websocket sock mismatch (%d vs %d)", ctx->sock, fd);
+	if (ctx.sock != fd) {
+		LOG_DBG("Websocket sock mismatch (%d vs %d)", ctx.sock, fd);
 	}
 
-	ctx->sock = -1;
+	ctx.sock = -1;
 
 	return 0;
 }
