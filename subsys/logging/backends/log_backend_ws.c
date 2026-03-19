@@ -64,16 +64,16 @@ static int ws_console_out(struct log_backend_ws_ctx *ctx, int c)
 
 	__ASSERT_NO_MSG(pos < sizeof(output_buf));
 
-	// output_buf[pos++] = c;
+	output_buf[pos++] = c;
 
-	// if (c == '\n') {
-	// 	printnow = true;
-	// }
-    if ((c != '\n') && (c != '\r')) {
-		output_buf[pos++] = c;
-	} else {
+	if (c == '\n') {
 		printnow = true;
 	}
+    // if ((c != '\n') && (c != '\r')) {
+	// 	output_buf[pos++] = c;
+	// } else {
+	// 	printnow = true;
+	// }
 
 	if (pos >= sizeof(output_buf)) {
 		printnow = true;
