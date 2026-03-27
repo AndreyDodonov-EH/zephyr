@@ -154,7 +154,8 @@ static void process(const struct log_backend *const backend,
 {
 	uint32_t flags = LOG_OUTPUT_FLAG_FORMAT_SYSLOG |
 			 LOG_OUTPUT_FLAG_TIMESTAMP |
-			 LOG_OUTPUT_FLAG_THREAD;
+			 LOG_OUTPUT_FLAG_THREAD |
+			 LOG_OUTPUT_FLAG_COLORS;
 	log_format_func_t log_output_func;
 
 	if (panic_mode) {
