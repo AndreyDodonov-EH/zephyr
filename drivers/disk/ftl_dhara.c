@@ -16,6 +16,8 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(disk_ftl, CONFIG_DISK_FTL_LOG_LEVEL);
 
+#define RESUME_ATTEMPTS 3U
+
 struct disk_ftl_data {
 #if CONFIG_DISK_FTL_SUPPORT_CONCURRENT_ACCESS
 	struct k_sem lock;
@@ -320,12 +322,18 @@ int disk_ftl_access_init(struct disk_info *disk)
 		ctx->dhara_nand.log2_page_size, ctx->dhara_nand.log2_ppb,
 		ctx->dhara_nand.num_blocks);
 
-	dhara_map_init(&ctx->dhara_map, &ctx->dhara_nand, ctx->dhara_buffer,
-		       CONFIG_DISK_FTL_GC_RATIO);
+	for (uint32_t attempt = 0U; attempt < RESUME_ATTEMPTS; attempt++) {
+		dhara_map_init(&ctx->dhara_map, &ctx->dhara_nand, ctx->dhara_buffer,
+			       CONFIG_DISK_FTL_GC_RATIO);
 
-	ctx->io_error = false;
+		ctx->io_error = false;
 
-	ret = dhara_map_resume(&ctx->dhara_map, &err);
+		ret = dhara_map_resume(&ctx->dhara_map, &err);
+		if (!ctx->io_error) {
+			break;
+		}
+	}
+
 	if (ret != 0) {
 		LOG_ERR("dhara_map_resume failed with error %d", err);
 		if (ctx->io_error || (erase_good_blocks(ctx) != 0)) {
