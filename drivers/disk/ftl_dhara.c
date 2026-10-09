@@ -21,6 +21,7 @@ struct disk_ftl_data {
 	struct k_sem lock;
 #endif
 	bool initialised;
+	bool io_error;
 	struct disk_info info;
 	const struct flash_area *area;
 	size_t page_size;
@@ -47,6 +48,7 @@ int dhara_nand_is_bad(const struct dhara_nand *n, dhara_block_t b)
 	} else if (ret != 0) {
 		LOG_ERR("checking bad block at 0x%08lx failed with error %d", (long)block_addr,
 			ret);
+		ctx->io_error = true;
 		return 1;
 	} else if (block_status == FLASH_BLOCK_BAD) {
 		LOG_DBG("block at 0x%08lx is marked bad", (long)block_addr);
@@ -123,6 +125,7 @@ int dhara_nand_is_free(const struct dhara_nand *n, dhara_page_t p)
 	ret = flash_read(ctx->info.dev, page_addr, ctx->page_buffer, ctx->page_size);
 	if (ret != 0) {
 		LOG_ERR("reading page at 0x%08lx failed with error %d", (long)page_addr, ret);
+		ctx->io_error = true;
 		return 0;
 	}
 
@@ -151,6 +154,7 @@ int dhara_nand_read(const struct dhara_nand *n, dhara_page_t p, size_t offset, s
 	if (ret != 0) {
 		LOG_ERR("reading data at 0x%08lx failed with error %d", (long)(page_addr + offset),
 			ret);
+		ctx->io_error = true;
 		dhara_set_error(err, DHARA_E_ECC);
 		return -1;
 	}
@@ -210,6 +214,25 @@ static __maybe_unused int flash_area_is_uniform(const struct flash_area *fa)
 	}
 
 	return 0;
+}
+
+static int erase_good_blocks(struct disk_ftl_data *ctx)
+{
+	for (dhara_block_t b = 0U; b < ctx->dhara_nand.num_blocks; b++) {
+		if (dhara_nand_is_bad(&ctx->dhara_nand, b) != 0) {
+			continue;
+		}
+
+		if (dhara_nand_erase(&ctx->dhara_nand, b, NULL) != 0) {
+			/* Dhara does not look for checkpoints in a bad block */
+			dhara_nand_mark_bad(&ctx->dhara_nand, b);
+			if (dhara_nand_is_bad(&ctx->dhara_nand, b) == 0) {
+				return -EIO;
+			}
+		}
+	}
+
+	return ctx->io_error ? -EIO : 0;
 }
 
 /* Everything necessary to acquire owning access to the disk. */
@@ -300,9 +323,15 @@ int disk_ftl_access_init(struct disk_info *disk)
 	dhara_map_init(&ctx->dhara_map, &ctx->dhara_nand, ctx->dhara_buffer,
 		       CONFIG_DISK_FTL_GC_RATIO);
 
+	ctx->io_error = false;
+
 	ret = dhara_map_resume(&ctx->dhara_map, &err);
 	if (ret != 0) {
 		LOG_ERR("dhara_map_resume failed with error %d", err);
+		if (ctx->io_error || (erase_good_blocks(ctx) != 0)) {
+			release_disk(disk);
+			return -EIO;
+		}
 	}
 
 	ctx->initialised = true;
